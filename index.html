@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Streak App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons (e.g., checkmark, trash, times) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom scrollbar for task lists */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Inter font from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom styles for timer button and display */
+        .timer-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            margin-left: auto; /* Push to the right */
+            transition: background-color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .timer-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .timer-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .timer-display {
+            margin-left: 10px;
+            font-weight: bold;
+            color: #007bff;
+            min-width: 60px; /* Ensure space for time display */
+            text-align: right;
+        }
+
+        /* Message Box Styling */
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            text-align: center;
+            max-width: 350px;
+            width: 90%;
+            display: none; /* Hidden by default */
+        }
+
+        #message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            display: none; /* Hidden by default */
+        }
+
+        #message-box-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center; /* Added this line */
+            gap: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500"></div>
+            <p class="mt-4 text-white text-lg">Loading...</p>
+        </div>
+    </div>
+
+    <!-- Message Box (for alerts/confirms) -->
+    <div id="message-box-overlay" class="hidden"></div>
+    <div id="message-box" class="hidden">
+        <p id="message-box-text" class="text-lg text-gray-800 mb-4"></p>
+        <div id="message-box-buttons">
+            <button id="message-box-ok" class="px-5 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-150 ease-in-out">OK</button>
+            <button id="message-box-cancel" class="px-5 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-150 ease-in-out hidden">Cancel</button>
+        </div>
+    </div>
+
+    <div class="w-full max-w-4xl bg-white rounded-lg shadow-xl p-6 md:p-8">
+        <h1 id="app-title" class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">
+            Streak to Become a Better Muslim
+        </h1>
+
+        <!-- Days Selection -->
+        <div class="mb-8 flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <label for="days-select" class="text-lg font-medium text-gray-700">Select Number of Days:</label>
+            <select id="days-select" class="block w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-base">
+                <option value="0">-- Select --</option>
+                <option value="7">7 Days</option>
+                <option value="15">15 Days</option>
+                <option value="30">30 Days</option>
+                <option value="60">60 Days</option>
+                <option value="90">90 Days</option>
+            </select>
+        </div>
+
+        <!-- User ID Display -->
+        <div id="user-id-display" class="text-center text-sm text-gray-500 mb-6 hidden">
+            Your User ID: <span id="user-id-value" class="font-mono bg-gray-200 px-2 py-1 rounded"></span>
+        </div>
+
+        <!-- Day Blocks Container -->
+        <div id="day-blocks-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
+            <!-- Day blocks will be rendered here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-40 hidden p-4">
+        <div class="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md md:max-w-lg lg:max-w-xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <button id="close-modal-btn" class="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-2xl font-bold rounded-full p-1 leading-none">&times;</button>
+            <h2 id="modal-title" class="text-2xl font-semibold text-gray-800 mb-4 text-center">Tasks for Day X</h2>
+
+            <!-- General Tasks Section (from previous streak app) -->
+            <div class="mb-6 border-b pb-4 border-gray-200">
+                <h3 class="text-xl font-medium text-gray-700 mb-3">General Daily Tasks</h3>
+                <div class="mb-4">
+                    <label for="new-task-input" class="block text-sm font-medium text-gray-700 mb-1">Add a new task:</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="new-task-input" placeholder="e.g., Read Quran" class="flex-grow px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500">
+                        <button id="add-task-btn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-150 ease-in-out">Add</button>
+                    </div>
+                </div>
+                <div class="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded-md p-2">
+                    <ul id="task-list" class="space-y-2">
+                        <!-- General tasks will be rendered here -->
+                    </ul>
+                    <p id="no-general-tasks-message" class="text-gray-500 text-center py-4 hidden">No general tasks added yet.</p>
+                </div>
+            </div>
+
+            <!-- Daily Plan Section (from uploaded index.html) -->
+            <div id="daily-plan-modal" class="mb-6 border-b pb-4 border-gray-200">
+                <h3 class="text-xl font-medium text-gray-700 mb-3">Daily Prayer Time Tasks</h3>
+
+                <!-- Fajr -->
+                <div class="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">Fəcr (Səhər)</h4>
+                    <div class="flex flex-wrap gap-2 mb-3 items-center">
+                        <input type="text" placeholder="Tapşırığı daxil edin" class="new-task-text flex-grow px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="number" placeholder="Vaxt (dəq)" class="new-task-time w-24 px-3 py-2 border border-gray-300 rounded-md">
+                        <select class="new-task-category px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="dini">Dini</option>
+                            <option value="dunyevi">Dünyəvi</option>
+                        </select>
+                        <button class="add-daily-task-btn px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition">Əlavə et</button>
+                    </div>
+                    <div class="max-h-32 overflow-y-auto custom-scrollbar border border-gray-100 rounded-md p-1">
+                        <ul class="tasks-list space-y-1" data-time-block="fajr"></ul>
+                        <p class="no-tasks-message text-gray-500 text-center py-2 hidden">No tasks added yet.</p>
+                    </div>
+                </div>
+
+                <!-- Zöhr -->
+                <div class="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">Zöhr (Günorta)</h4>
+                    <div class="flex flex-wrap gap-2 mb-3 items-center">
+                        <input type="text" placeholder="Tapşırığı daxil edin" class="new-task-text flex-grow px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="number" placeholder="Vaxt (dəq)" class="new-task-time w-24 px-3 py-2 border border-gray-300 rounded-md">
+                        <select class="new-task-category px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="dini">Dini</option>
+                            <option value="dunyevi">Dünyəvi</option>
+                        </select>
+                        <button class="add-daily-task-btn px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition">Əlavə et</button>
+                    </div>
+                    <div class="max-h-32 overflow-y-auto custom-scrollbar border border-gray-100 rounded-md p-1">
+                        <ul class="tasks-list space-y-1" data-time-block="dhuhr"></ul>
+                        <p class="no-tasks-message text-gray-500 text-center py-2 hidden">No tasks added yet.</p>
+                    </div>
+                </div>
+
+                <!-- Əsr -->
+                <div class="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">Əsr (Günorta Sonrası)</h4>
+                    <div class="flex flex-wrap gap-2 mb-3 items-center">
+                        <input type="text" placeholder="Tapşırığı daxil edin" class="new-task-text flex-grow px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="number" placeholder="Vaxt (dəq)" class="new-task-time w-24 px-3 py-2 border border-gray-300 rounded-md">
+                        <select class="new-task-category px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="dini">Dini</option>
+                            <option value="dunyevi">Dünyəvi</option>
+                        </select>
+                        <button class="add-daily-task-btn px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition">Əlavə et</button>
+                    </div>
+                    <div class="max-h-32 overflow-y-auto custom-scrollbar border border-gray-100 rounded-md p-1">
+                        <ul class="tasks-list space-y-1" data-time-block="asr"></ul>
+                        <p class="no-tasks-message text-gray-500 text-center py-2 hidden">No tasks added yet.</p>
+                    </div>
+                </div>
+
+                <!-- Məğrib -->
+                <div class="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">Məğrib (Axşam)</h4>
+                    <div class="flex flex-wrap gap-2 mb-3 items-center">
+                        <input type="text" placeholder="Tapşırığı daxil edin" class="new-task-text flex-grow px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="number" placeholder="Vaxt (dəq)" class="new-task-time w-24 px-3 py-2 border border-gray-300 rounded-md">
+                        <select class="new-task-category px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="dini">Dini</option>
+                            <option value="dunyevi">Dünyəvi</option>
+                        </select>
+                        <button class="add-daily-task-btn px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition">Əlavə et</button>
+                    </div>
+                    <div class="max-h-32 overflow-y-auto custom-scrollbar border border-gray-100 rounded-md p-1">
+                        <ul class="tasks-list space-y-1" data-time-block="maghrib"></ul>
+                        <p class="no-tasks-message text-gray-500 text-center py-2 hidden">No tasks added yet.</p>
+                    </div>
+                </div>
+
+                <!-- İşa -->
+                <div class="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
+                    <h4 class="text-lg font-medium text-gray-700 mb-2">İşa (Gecə)</h4>
+                    <div class="flex flex-wrap gap-2 mb-3 items-center">
+                        <input type="text" placeholder="Tapşırığı daxil edin" class="new-task-text flex-grow px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="number" placeholder="Vaxt (dəq)" class="new-task-time w-24 px-3 py-2 border border-gray-300 rounded-md">
+                        <select class="new-task-category px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="dini">Dini</option>
+                            <option value="dunyevi">Dünyəvi</option>
+                        </select>
+                        <button class="add-daily-task-btn px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition">Əlavə et</button>
+                    </div>
+                    <div class="max-h-32 overflow-y-auto custom-scrollbar border border-gray-100 rounded-md p-1">
+                        <ul class="tasks-list space-y-1" data-time-block="isha"></ul>
+                        <p class="no-tasks-message text-gray-500 text-center py-2 hidden">No tasks added yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recurring Tasks Section (formerly Weekly Tasks) -->
+            <div id="recurring-tasks-modal" class="mb-6 border-b pb-4 border-gray-200">
+                <h3 class="text-xl font-medium text-gray-700 mb-3">Recurring Tasks</h3>
+                <div class="flex flex-wrap gap-2 mb-3 items-center">
+                    <input type="text" placeholder="Recurring task" class="new-recurring-task-text flex-grow px-3 py-2 border border-gray-300 rounded-md">
+                    <select class="new-recurring-task-category px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="dini">Dini</option>
+                        <option value="dunyevi">Dünyəvi</option>
+                    </select>
+                    <button class="add-recurring-task-btn px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition">Add</button>
+                </div>
+                <div class="max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded-md p-2">
+                    <ul id="recurring-tasks-list" class="space-y-2">
+                        <!-- Recurring tasks will be rendered here -->
+                    </ul>
+                    <p id="no-recurring-tasks-message" class="text-gray-500 text-center py-4 hidden">No recurring tasks added yet.</p>
+                </div>
+            </div>
+
+            <!-- Journal Section (from uploaded index.html) -->
+            <div id="journal-section-modal" class="mb-6">
+                <h3 class="text-xl font-medium text-gray-700 mb-3">Journal</h3>
+                <div class="mb-4">
+                    <h4 class="text-base font-medium text-gray-700 mb-1">Günün ən vacib dini öyrənməsi:</h4>
+                    <textarea id="diniOyrJournal" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 resize-y"></textarea>
+                </div>
+                <div class="mb-4">
+                    <h4 class="text-base font-medium text-gray-700 mb-1">Günün ən vacib dünyəvi nailiyyəti:</h4>
+                    <textarea id="dunyeviNailJournal" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 resize-y"></textarea>
+                </div>
+                <div class="mb-4">
+                    <h4 class="text-base font-medium text-gray-700 mb-1">Şükür etdiyin bir an:</h4>
+                    <textarea id="sukrAnJournal" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 resize-y"></textarea>
+                </div>
+            </div>
+
+            <!-- Threshold Section -->
+            <div class="mb-6">
+                <label for="threshold-input" class="block text-sm font-medium text-gray-700 mb-1">Completion Threshold (number of tasks):</label>
+                <input type="number" id="threshold-input" min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500">
+            </div>
+
+            <div class="flex justify-end">
+                <button id="save-tasks-btn" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out shadow-lg">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Firebase App and Services
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        // DOM Elements
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const daysSelect = document.getElementById('days-select');
+        const appTitle = document.getElementById('app-title');
+        const dayBlocksContainer = document.getElementById('day-blocks-container');
+        const taskModal = document.getElementById('task-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalTitle = document.getElementById('modal-title');
+
+        // General Task Elements
+        const newTaskInput = document.getElementById('new-task-input');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const taskList = document.getElementById('task-list');
+        const noGeneralTasksMessage = document.getElementById('no-general-tasks-message');
+
+        // Daily Plan Elements
+        const dailyTimeBlocks = {
+            fajr: document.querySelector('.tasks-list[data-time-block="fajr"]'),
+            dhuhr: document.querySelector('.tasks-list[data-time-block="dhuhr"]'),
+            asr: document.querySelector('.tasks-list[data-time-block="asr"]'),
+            maghrib: document.querySelector('.tasks-list[data-time-block="maghrib"]'),
+            isha: document.querySelector('.tasks-list[data-time-block="isha"]')
+        };
+        const addDailyTaskButtons = document.querySelectorAll('.add-daily-task-btn');
+
+        // Recurring Task Elements
+        const newRecurringTaskText = document.querySelector('.new-recurring-task-text');
+        const newRecurringTaskCategory = document.querySelector('.new-recurring-task-category');
+        const addRecurringTaskBtn = document.querySelector('.add-recurring-task-btn');
+        const recurringTasksList = document.getElementById('recurring-tasks-list');
+        const noRecurringTasksMessage = document.getElementById('no-recurring-tasks-message');
+
+        // Journal Elements
+        const diniOyrJournal = document.getElementById('diniOyrJournal');
+        const dunyeviNailJournal = document.getElementById('dunyeviNailJournal');
+        const sukrAnJournal = document.getElementById('sukrAnJournal');
+
+        const thresholdInput = document.getElementById('threshold-input');
+        const saveTasksBtn = document.getElementById('save-tasks-btn');
+        const userIdDisplay = document.getElementById('user-id-display');
+        const userIdValueSpan = document.getElementById('user-id-value');
+
+        // Message Box Elements
+        const messageBox = document.getElementById('message-box');
+        const messageBoxOverlay = document.getElementById('message-box-overlay');
+        const messageBoxText = document.getElementById('message-box-text');
+        const messageBoxOkBtn = document.getElementById('message-box-ok');
+        const messageBoxCancelBtn = document.getElementById('message-box-cancel');
+
+        // App State
+        let selectedDays = 0;
+        let streakData = {
+            selectedDays: 0,
+            days: []
+        };
+        let currentDayIndex = -1; // 0-indexed day being edited
+        let timers = {}; // Object to store timers by task ID
+
+        // --- Message Box Functions (replacing alert/confirm) ---
+        function showMessage(message, type = 'alert', onConfirm = null) {
+            messageBoxText.textContent = message;
+            messageBoxCancelBtn.classList.add('hidden');
+            messageBoxOkBtn.onclick = () => {
+                messageBox.classList.add('hidden');
+                messageBoxOverlay.classList.add('hidden');
+            };
+
+            if (type === 'confirm') {
+                messageBoxCancelBtn.classList.remove('hidden');
+                messageBoxOkBtn.onclick = () => {
+                    messageBox.classList.add('hidden');
+                    messageBoxOverlay.classList.add('hidden');
+                    if (onConfirm) onConfirm(true);
+                };
+                messageBoxCancelBtn.onclick = () => {
+                    messageBox.classList.add('hidden');
+                    messageBoxOverlay.classList.add('hidden');
+                    if (onConfirm) onConfirm(false);
+                };
+            }
+            messageBox.classList.remove('hidden');
+            messageBoxOverlay.classList.remove('hidden');
+        }
+
+        // --- Firebase Initialization and Authentication ---
+        const initializeFirebase = async () => {
+            showLoading();
+            try {
+                if (Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            userIdValueSpan.textContent = userId;
+                            userIdDisplay.classList.remove('hidden');
+                            console.log("Firebase Auth Ready. User ID:", userId);
+                            isAuthReady = true;
+                            await loadStreakData();
+                        } else {
+                            // Sign in anonymously if no custom token or if user logs out
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        }
+                        hideLoading();
+                    });
+                } else {
+                    console.error("Firebase config is missing. App will run without persistence.");
+                    hideLoading();
+                    // Fallback for development without Firebase config
+                    isAuthReady = true; // Allow app to function without persistence
+                    userId = 'anonymous-dev-user';
+                    userIdValueSpan.textContent = userId;
+                    userIdDisplay.classList.remove('hidden');
+                    initializeDefaultStreakData(); // Initialize empty if no Firebase
+                    renderApp();
+                }
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                hideLoading();
+            }
+        };
+
+        // --- Firestore Operations ---
+        const getStreakDocRef = () => {
+            if (!db || !userId) {
+                console.error("Firestore or User ID not available.");
+                return null;
+            }
+            // Private data path: /artifacts/{appId}/users/{userId}/{your_collection_name}/{documentId}
+            return doc(db, `artifacts/${appId}/users/${userId}/streak_data/streak_config`);
+        };
+
+        const loadStreakData = async () => {
+            if (!isAuthReady) {
+                console.log("Auth not ready, delaying data load.");
+                return;
+            }
+
+            const docRef = getStreakDocRef();
+            if (!docRef) {
+                console.warn("Firestore document reference not available, initializing with default data.");
+                initializeDefaultStreakData();
+                renderApp();
+                return;
+            }
+
+            // Listen for real-time updates
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    streakData = data;
+                    selectedDays = streakData.selectedDays;
+                    console.log("Streak data loaded from Firestore:", streakData);
+                } else {
+                    console.log("No streak data found in Firestore, initializing new.");
+                    initializeDefaultStreakData();
+                }
+                renderApp(); // Always render after data is loaded or initialized
+            }, (error) => {
+                console.error("Error listening to streak data:", error);
+                initializeDefaultStreakData(); // Fallback on error
+                renderApp();
+            });
+        };
+
+        const saveStreakData = async () => {
+            if (!isAuthReady || !db || !userId) {
+                console.error("Cannot save: Auth not ready or Firebase/User ID missing.");
+                return;
+            }
+            showLoading();
+            try {
+                const docRef = getStreakDocRef();
+                if (docRef) {
+                    await setDoc(docRef, streakData);
+                    console.log("Streak data saved to Firestore.");
+                } else {
+                    console.error("Failed to get document reference for saving.");
+                }
+            } catch (error) {
+                console.error("Error saving streak data:", error);
+            } finally {
+                hideLoading();
+            }
+        };
+
+        // --- App Logic ---
+        const initializeDefaultStreakData = () => {
+            selectedDays = 0;
+            streakData = {
+                selectedDays: 0,
+                days: []
+            };
+            daysSelect.value = "0"; // Reset dropdown
+            updateAppTitle();
+        };
+
+        const updateAppTitle = () => {
+            if (selectedDays > 0) {
+                appTitle.textContent = `${selectedDays}-Day Streak to Become a Better Muslim`;
+            } else {
+                appTitle.textContent = "Streak to Become a Better Muslim";
+            }
+        };
+
+        const renderDayBlocks = () => {
+            dayBlocksContainer.innerHTML = '';
+            if (selectedDays === 0) {
+                return;
+            }
+
+            // Ensure streakData.days has enough entries for selectedDays
+            while (streakData.days.length < selectedDays) {
+                streakData.days.push({
+                    tasks: [], // General tasks
+                    threshold: 0,
+                    isCompleted: false,
+                    dailyTasks: { // Daily time-block tasks
+                        fajr: [], dhuhr: [], asr: [], maghrib: [], isha: []
+                    },
+                    recurringTasks: [], // Weekly tasks, now per day
+                    journal: { // Journal entries
+                        diniOyrJournal: '', dunyeviNailJournal: '', sukrAnJournal: ''
+                    }
+                });
+            }
+            // Trim if selectedDays decreased
+            streakData.days = streakData.days.slice(0, selectedDays);
+
+            for (let i = 0; i < selectedDays; i++) {
+                const day = streakData.days[i];
+                const block = document.createElement('div');
+                block.classList.add(
+                    'day-block',
+                    'p-4', 'rounded-lg', 'shadow-md', 'flex', 'flex-col', 'items-center', 'justify-center',
+                    'cursor-pointer', 'transition-colors', 'duration-200', 'ease-in-out',
+                    'aspect-square', // Make it square
+                    'text-center'
+                );
+                block.dataset.dayIndex = i;
+
+                // Determine background color based on completion status
+                if (day.isCompleted) {
+                    block.classList.add('bg-green-500', 'text-white');
+                    block.classList.remove('bg-gray-300', 'bg-red-500');
+                } else if (day.tasks.length > 0 || Object.values(day.dailyTasks).some(arr => arr.length > 0) || day.recurringTasks.length > 0) {
+                    // If any tasks are present (general, daily, or recurring) and not completed
+                    block.classList.add('bg-red-500', 'text-white');
+                    block.classList.remove('bg-gray-300', 'bg-green-500');
+                } else { // Default state (no tasks added yet)
+                    block.classList.add('bg-gray-300', 'text-gray-800');
+                    block.classList.remove('bg-green-500', 'bg-red-500');
+                }
+
+                const dayNumber = document.createElement('span');
+                dayNumber.classList.add('text-xl', 'font-semibold');
+                dayNumber.textContent = `Day ${i + 1}`;
+                block.appendChild(dayNumber);
+
+                if (day.isCompleted) {
+                    const checkIcon = document.createElement('i');
+                    checkIcon.classList.add('fas', 'fa-check-circle', 'mt-2', 'text-2xl');
+                    block.appendChild(checkIcon);
+                } else if (day.tasks.length > 0 || Object.values(day.dailyTasks).some(arr => arr.length > 0) || day.recurringTasks.length > 0) {
+                    const crossIcon = document.createElement('i');
+                    crossIcon.classList.add('fas', 'fa-times-circle', 'mt-2', 'text-2xl');
+                    block.appendChild(crossIcon);
+                }
+
+
+                block.addEventListener('click', () => openTaskModal(i));
+                dayBlocksContainer.appendChild(block);
+            }
+        };
+
+        const openTaskModal = (index) => {
+            currentDayIndex = index;
+            modalTitle.textContent = `Tasks for Day ${index + 1}`;
+            renderAllTasksInModal();
+            taskModal.classList.remove('hidden');
+        };
+
+        const closeTaskModal = () => {
+            taskModal.classList.add('hidden');
+            currentDayIndex = -1;
+            // Clear all input fields in the modal
+            newTaskInput.value = '';
+            document.querySelectorAll('#daily-plan-modal .new-task-text').forEach(input => input.value = '');
+            document.querySelectorAll('#daily-plan-modal .new-task-time').forEach(input => input.value = '');
+            newRecurringTaskText.value = '';
+            // Save journal entries when closing the modal
+            saveJournalEntries();
+        };
+
+        const renderAllTasksInModal = () => {
+            const day = streakData.days[currentDayIndex];
+            if (!day) return;
+
+            // Render General Tasks
+            renderTaskList(day.tasks, taskList, noGeneralTasksMessage, false, false);
+
+            // Render Daily Time Block Tasks
+            for (const blockName in dailyTimeBlocks) {
+                const listElement = dailyTimeBlocks[blockName];
+                const tasksForBlock = day.dailyTasks[blockName] || [];
+                const noTasksMsgElement = listElement.nextElementSibling; // Assuming p.no-tasks-message is next
+                renderTaskList(tasksForBlock, listElement, noTasksMsgElement, true, false);
+            }
+
+            // Render Recurring Tasks
+            renderTaskList(day.recurringTasks, recurringTasksList, noRecurringTasksMessage, false, true);
+
+            // Populate Journal
+            diniOyrJournal.value = day.journal.diniOyrJournal || '';
+            dunyeviNailJournal.value = day.journal.dunyeviNailJournal || '';
+            sukrAnJournal.value = day.journal.sukrAnJournal || '';
+
+            thresholdInput.value = day.threshold || 0;
+        };
+
+        // Helper function to render any task list
+        function renderTaskList(tasksArray, parentList, noTasksMessageElement, isDailyTimeBlock = false, isRecurring = false) {
+            parentList.innerHTML = '';
+            if (!tasksArray || tasksArray.length === 0) {
+                noTasksMessageElement.classList.remove('hidden');
+            } else {
+                noTasksMessageElement.classList.add('hidden');
+                tasksArray.forEach((task, taskIdx) => {
+                    const li = document.createElement('li');
+                    li.classList.add('flex', 'items-center', 'justify-between', 'bg-gray-50', 'p-2', 'rounded-md', 'shadow-sm', 'flex-wrap', 'gap-2');
+                    li.dataset.taskId = task.id;
+                    li.dataset.category = task.category;
+                    if (isDailyTimeBlock) {
+                        li.dataset.taskTime = task.time;
+                    }
+
+                    const checkboxContainer = document.createElement('label');
+                    checkboxContainer.classList.add('flex', 'items-center', 'cursor-pointer', 'flex-grow');
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = task.completed;
+                    checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-green-600', 'rounded', 'focus:ring-green-500');
+                    checkbox.addEventListener('change', () => {
+                        task.completed = checkbox.checked;
+                        updateDayCompletionStatus(currentDayIndex);
+                        saveStreakData();
+                        renderTaskList(tasksArray, parentList, noTasksMessageElement, isDailyTimeBlock, isRecurring); // Re-render to update line-through
+                    });
+
+                    const taskTextSpan = document.createElement('span');
+                    taskTextSpan.classList.add('ml-2', 'text-gray-800', task.completed ? 'line-through text-gray-500' : '');
+                    taskTextSpan.textContent = task.text;
+                    if (isDailyTimeBlock && task.time) {
+                        taskTextSpan.textContent += ` (${task.time} dəq)`;
+                    }
+
+                    checkboxContainer.appendChild(checkbox);
+                    checkboxContainer.appendChild(taskTextSpan);
+                    li.appendChild(checkboxContainer);
+
+                    if (isDailyTimeBlock) {
+                        const timerBtn = document.createElement('button');
+                        timerBtn.classList.add('timer-btn');
+                        timerBtn.textContent = `Timer (${task.time || 0} dəq)`;
+                        timerBtn.dataset.duration = task.time || 0;
+                        li.appendChild(timerBtn);
+
+                        const timerDisplay = document.createElement('span');
+                        timerDisplay.classList.add('timer-display');
+                        li.appendChild(timerDisplay);
+
+                        timerBtn.addEventListener('click', () => {
+                            startTimer(task.id, parseInt(timerBtn.dataset.duration), timerDisplay, timerBtn);
+                        });
+                    }
+
+                    // Delete button
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.classList.add('text-red-500', 'hover:text-red-700', 'ml-4');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                    deleteBtn.addEventListener('click', () => {
+                        showMessage('Bu tapşırığı silməyə əminsiniz?', 'confirm', (confirmed) => {
+                            if (confirmed) {
+                                tasksArray.splice(taskIdx, 1);
+                                renderTaskList(tasksArray, parentList, noTasksMessageElement, isDailyTimeBlock, isRecurring);
+                                updateDayCompletionStatus(currentDayIndex);
+                                saveStreakData();
+                            }
+                        });
+                    });
+                    li.appendChild(deleteBtn);
+
+                    parentList.appendChild(li);
+                });
+            }
+        }
+
+        // --- Task Addition Functions ---
+        const generateUniqueId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+
+        const addGeneralTask = () => {
+            const taskText = newTaskInput.value.trim();
+            if (taskText) {
+                const day = streakData.days[currentDayIndex];
+                day.tasks.push({ id: generateUniqueId(), text: taskText, completed: false, category: 'general' }); // Add category for consistency
+                newTaskInput.value = '';
+                renderTaskList(day.tasks, taskList, noGeneralTasksMessage, false, false);
+                updateDayCompletionStatus(currentDayIndex);
+                saveStreakData();
+            } else {
+                showMessage('Zəhmət olmasa, tapşırıq mətnini daxil edin.');
+            }
+        };
+
+        addDailyTaskButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const timeBlockDiv = e.target.closest('.bg-gray-50');
+                const taskText = timeBlockDiv.querySelector('.new-task-text').value.trim();
+                const taskTime = parseInt(timeBlockDiv.querySelector('.new-task-time').value);
+                const taskCategory = timeBlockDiv.querySelector('.new-task-category').value;
+                const targetList = timeBlockDiv.querySelector('.tasks-list');
+                const timeBlockName = targetList.dataset.timeBlock;
+
+                if (taskText && !isNaN(taskTime) && taskTime > 0) {
+                    const day = streakData.days[currentDayIndex];
+                    if (!day.dailyTasks[timeBlockName]) {
+                        day.dailyTasks[timeBlockName] = [];
+                    }
+                    day.dailyTasks[timeBlockName].push({
+                        id: generateUniqueId(),
+                        text: taskText,
+                        time: taskTime,
+                        category: taskCategory,
+                        completed: false
+                    });
+                    timeBlockDiv.querySelector('.new-task-text').value = '';
+                    timeBlockDiv.querySelector('.new-task-time').value = '';
+                    renderTaskList(day.dailyTasks[timeBlockName], targetList, targetList.nextElementSibling, true, false);
+                    updateDayCompletionStatus(currentDayIndex);
+                    saveStreakData();
+                } else {
+                    showMessage('Zəhmət olmasa, tapşırıq mətnini və vaxtı (dəqiqə ilə, müsbət ədəd) daxil edin.');
+                }
+            });
+        });
+
+        const addRecurringTask = () => {
+            const taskText = newRecurringTaskText.value.trim();
+            const taskCategory = newRecurringTaskCategory.value;
+
+            if (taskText) {
+                const day = streakData.days[currentDayIndex];
+                day.recurringTasks.push({ id: generateUniqueId(), text: taskText, category: taskCategory, completed: false });
+                newRecurringTaskText.value = '';
+                renderTaskList(day.recurringTasks, recurringTasksList, noRecurringTasksMessage, false, true);
+                updateDayCompletionStatus(currentDayIndex);
+                saveStreakData();
+            } else {
+                showMessage('Zəhmət olmasa, həftəlik tapşırıq mətnini daxil edin.');
+            }
+        };
+
+        const saveJournalEntries = () => {
+            const day = streakData.days[currentDayIndex];
+            if (day) {
+                day.journal.diniOyrJournal = diniOyrJournal.value;
+                day.journal.dunyeviNailJournal = dunyeviNailJournal.value;
+                day.journal.sukrAnJournal = sukrAnJournal.value;
+                saveStreakData();
+            }
+        };
+
+        const updateDayCompletionStatus = (dayIndex) => {
+            const day = streakData.days[dayIndex];
+            if (!day) return;
+
+            let totalCompletedTasks = 0;
+            let totalTasks = 0;
+
+            // Count general tasks
+            totalCompletedTasks += day.tasks.filter(task => task.completed).length;
+            totalTasks += day.tasks.length;
+
+            // Count daily time-block tasks
+            for (const blockName in day.dailyTasks) {
+                totalCompletedTasks += day.dailyTasks[blockName].filter(task => task.completed).length;
+                totalTasks += day.dailyTasks[blockName].length;
+            }
+
+            // Count recurring tasks
+            totalCompletedTasks += day.recurringTasks.filter(task => task.completed).length;
+            totalTasks += day.recurringTasks.length;
+
+            // Determine completion status
+            day.isCompleted = (totalCompletedTasks >= day.threshold && day.threshold > 0);
+
+            // If no tasks are added and threshold is 0, it's not considered completed
+            if (totalTasks === 0 && day.threshold === 0) {
+                day.isCompleted = false;
+            }
+
+            renderDayBlocks(); // Re-render blocks to update colors
+        };
+
+        const handleThresholdChange = () => {
+            const newThreshold = parseInt(thresholdInput.value, 10);
+            if (!isNaN(newThreshold) && newThreshold >= 0) {
+                streakData.days[currentDayIndex].threshold = newThreshold;
+                updateDayCompletionStatus(currentDayIndex);
+                saveStreakData();
+            }
+        };
+
+        // --- Timer Functions ---
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function startTimer(taskId, duration, displayElement, buttonElement) {
+            if (timers[taskId] && timers[taskId].interval) {
+                clearInterval(timers[taskId].interval);
+                delete timers[taskId];
+            }
+
+            let timeRemaining = duration * 60;
+            displayElement.textContent = formatTime(timeRemaining);
+            buttonElement.disabled = true;
+
+            timers[taskId] = {
+                interval: setInterval(() => {
+                    timeRemaining--;
+                    displayElement.textContent = formatTime(timeRemaining);
+
+                    if (timeRemaining <= 0) {
+                        clearInterval(timers[taskId].interval);
+                        displayElement.textContent = 'Vaxt Bitdi!';
+                        buttonElement.disabled = false;
+                        showMessage(`"${document.querySelector(`li[data-task-id="${taskId}"] span`).textContent.split(' (')[0]}" tapşırığı üçün vaxt bitdi!`, 'alert');
+                        delete timers[taskId];
+                    }
+                }, 1000)
+            };
+        }
+
+        const renderApp = () => {
+            updateAppTitle();
+            renderDayBlocks();
+            daysSelect.value = selectedDays.toString();
+        };
+
+        // --- Utility Functions ---
+        const showLoading = () => {
+            loadingIndicator.classList.remove('hidden');
+        };
+
+        const hideLoading = () => {
+            loadingIndicator.classList.add('hidden');
+        };
+
+        // --- Event Listeners ---
+        daysSelect.addEventListener('change', (event) => {
+            selectedDays = parseInt(event.target.value, 10);
+            streakData.selectedDays = selectedDays;
+            renderApp();
+            saveStreakData();
+        });
+
+        closeModalBtn.addEventListener('click', closeTaskModal);
+        addTaskBtn.addEventListener('click', addGeneralTask);
+        newTaskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addGeneralTask();
+            }
+        });
+        addRecurringTaskBtn.addEventListener('click', addRecurringTask);
+        newRecurringTaskText.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addRecurringTask();
+            }
+        });
+
+        // Journal input change listeners for auto-save on blur
+        diniOyrJournal.addEventListener('change', saveJournalEntries);
+        dunyeviNailJournal.addEventListener('change', saveJournalEntries);
+        sukrAnJournal.addEventListener('change', saveJournalEntries);
+
+        thresholdInput.addEventListener('change', handleThresholdChange);
+        saveTasksBtn.addEventListener('click', closeTaskModal);
+
+        // Initial setup
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
