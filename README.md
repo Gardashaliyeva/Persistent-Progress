@@ -11,4 +11,4 @@ When you click on any day's block, a detailed view opens up, allowing you to:
 As you complete tasks, you can check them off. The app automatically tracks your progress, and if you meet or exceed your daily goal, that day's block will turn green. If not, it will turn red, giving you a clear visual of your streak's status. All your tasks, progress, and journal entries are automatically saved, so your data is always there when you return to the app.
 
 ## Prototype
-[Persistent Progress](https://persistent-progress.netlify.app/)
+[Persistent Progress App](https://persistent-progress.netlify.app/)
